@@ -2,105 +2,100 @@
 <html lang="de">
 
 <head>
-
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<meta
-    name="viewport"
-    content="width=device-width, initial-scale=1.0"
->
-
-<title>PICO MR Bilder</title>
+<title>PICO 4 – MR Bilder</title>
 
 <style>
 
 html,
 body {
-
     margin: 0;
     padding: 0;
-
     width: 100%;
     height: 100%;
-
     overflow: hidden;
-
     background: transparent;
-
     font-family: Arial, sans-serif;
-
 }
 
+canvas {
+    display: block;
+}
 
 #menu {
-
     position: fixed;
+    z-index: 9999;
 
-    z-index: 100;
-
-    top: 20px;
+    top: 50%;
     left: 50%;
 
-    transform: translateX(-50%);
+    transform: translate(-50%, -50%);
 
-    background: rgba(0,0,0,0.75);
-
+    background: rgba(20,20,20,0.92);
     color: white;
 
-    padding: 15px;
+    padding: 25px;
 
-    border-radius: 15px;
+    border-radius: 20px;
 
     text-align: center;
 
+    min-width: 280px;
+
+    box-shadow:
+        0 10px 40px rgba(0,0,0,0.5);
 }
 
+#menu h1 {
+    margin-top: 0;
+}
 
-#menu button {
+button {
+    display: block;
 
-    margin: 5px;
+    width: 100%;
 
-    padding: 10px 15px;
+    margin: 10px 0;
+
+    padding: 14px;
 
     border: none;
 
-    border-radius: 10px;
+    border-radius: 12px;
 
-    font-size: 16px;
+    font-size: 17px;
 
+    cursor: pointer;
 }
 
-
-#status {
-
-    margin-top: 8px;
-
-    font-size: 14px;
-
-    opacity: 0.8;
-
-}
-
-
-#start {
-
+#startMR {
     background: #9b59ff;
-
     color: white;
 
     font-weight: bold;
-
 }
 
+#motif1 {
+    background: white;
+    color: black;
+}
 
-canvas {
+#motif2 {
+    background: white;
+    color: black;
+}
 
-    display: block;
+#status {
+    margin-top: 15px;
 
+    font-size: 13px;
+
+    opacity: 0.75;
 }
 
 </style>
-
 </head>
 
 
@@ -109,22 +104,22 @@ canvas {
 
 <div id="menu">
 
+    <h1>🥽 PICO MR</h1>
+
     <button id="motif1">
-        Mein Motiv
+        🖼️ Mein Bild
     </button>
 
     <button id="motif2">
-        Motiv Mom
+        🖼️ MAM-Bild
     </button>
 
-    <br>
-
-    <button id="start">
-        🥽 MR starten
+    <button id="startMR">
+        🥽 MR STARTEN
     </button>
 
     <div id="status">
-        Motiv 1 | 2 × 2 m | nicht festgestellt
+        Motiv 1 ausgewählt
     </div>
 
 </div>
@@ -135,6 +130,9 @@ canvas {
 
 import * as THREE from
 "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js";
+
+import { ARButton } from
+"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/webxr/ARButton.js";
 
 
 /* =====================================================
@@ -153,7 +151,7 @@ const IMAGES = {
 
 
 /* =====================================================
-   SZENE
+   THREE.JS
    ===================================================== */
 
 const scene =
@@ -162,16 +160,11 @@ const scene =
 
 const camera =
     new THREE.PerspectiveCamera(
-
         70,
-
         window.innerWidth /
         window.innerHeight,
-
         0.01,
-
         100
-
     );
 
 
@@ -205,7 +198,7 @@ document.body.appendChild(
 
 
 /* =====================================================
-   BILD
+   BILD-GRUPPE
    ===================================================== */
 
 const pictureGroup =
@@ -221,69 +214,88 @@ let picture = null;
 
 
 /* =====================================================
-   BILD-EINSTELLUNGEN
+   EINSTELLUNGEN
    ===================================================== */
 
 let currentMotif = 1;
 
+let locked = false;
+
 
 /*
-    Standardgröße:
+    Standard:
 
-    2 Meter × 2 Meter
+    2 × 2 Meter
 */
 
-let pictureWidth = 2;
-
-let pictureHeight = 2;
+let pictureSize = 2;
 
 
 /*
-    Transparenz:
+    Transparenz
 
-    1.0 = komplett sichtbar
-    0.5 = halbtransparent
-    0.2 = fast durchsichtig
+    1.0 = 100 %
+    0.7 = 70 %
+    0.4 = 40 %
+    0.2 = 20 %
 */
 
 let pictureOpacity = 1.0;
 
 
 /*
-    Position
+    Startposition
+
+    X = links/rechts
+    Y = Höhe
+    Z = Entfernung
 */
 
 pictureGroup.position.set(
-
     0,
-
     1.5,
-
     -1.5
-
 );
 
 
-/*
-    Rotation
-*/
+/* =====================================================
+   STATUS
+   ===================================================== */
 
-pictureGroup.rotation.set(
+function updateStatus() {
 
-    0,
+    const lock =
+        locked
+        ? "🔒 festgestellt"
+        : "🔓 frei";
 
-    0,
+    document.getElementById(
+        "status"
+    ).innerText =
 
-    0
+        "Motiv "
+        +
+        currentMotif
+        +
+        " | "
+        +
+        pictureSize.toFixed(1)
+        +
+        " × "
+        +
+        pictureSize.toFixed(1)
+        +
+        " m | "
+        +
+        Math.round(
+            pictureOpacity * 100
+        )
+        +
+        "% | "
+        +
+        lock;
 
-);
-
-
-/*
-    Ist das Bild festgestellt?
-*/
-
-let locked = false;
+}
 
 
 /* =====================================================
@@ -291,7 +303,6 @@ let locked = false;
    ===================================================== */
 
 function loadPicture(number) {
-
 
     currentMotif =
         number;
@@ -306,7 +317,6 @@ function loadPicture(number) {
         IMAGES[number],
 
         function(texture) {
-
 
             texture.colorSpace =
                 THREE.SRGBColorSpace;
@@ -330,18 +340,13 @@ function loadPicture(number) {
 
 
             /*
-                Quadrat:
-
-                2 × 2 Meter
+                Quadratische Fläche
             */
 
             const geometry =
                 new THREE.PlaneGeometry(
-
-                    pictureWidth,
-
-                    pictureHeight
-
+                    pictureSize,
+                    pictureSize
                 );
 
 
@@ -363,11 +368,8 @@ function loadPicture(number) {
 
             picture =
                 new THREE.Mesh(
-
                     geometry,
-
                     material
-
                 );
 
 
@@ -380,14 +382,12 @@ function loadPicture(number) {
 
         },
 
-
         undefined,
-
 
         function(error) {
 
             console.error(
-                "Bild konnte nicht geladen werden:",
+                "Fehler beim Laden:",
                 error
             );
 
@@ -399,67 +399,31 @@ function loadPicture(number) {
 
 
 /* =====================================================
-   STATUS
-   ===================================================== */
-
-function updateStatus() {
-
-
-    let lockText =
-        locked
-        ? "🔒 festgestellt"
-        : "🔓 frei";
-
-
-    document.getElementById(
-        "status"
-    ).innerText =
-
-        "Motiv "
-        +
-        currentMotif
-        +
-        " | "
-        +
-        pictureWidth.toFixed(1)
-        +
-        " × "
-        +
-        pictureHeight.toFixed(1)
-        +
-        " m | "
-        +
-        Math.round(
-            pictureOpacity * 100
-        )
-        +
-        "% sichtbar | "
-        +
-        lockText;
-
-}
-
-
-/* =====================================================
    MOTIV BUTTONS
    ===================================================== */
 
 document.getElementById(
     "motif1"
-).onclick = function() {
+).addEventListener(
+    "click",
+    function() {
 
-    loadPicture(1);
+        loadPicture(1);
 
-};
+    }
+);
 
 
 document.getElementById(
     "motif2"
-).onclick = function() {
+).addEventListener(
+    "click",
+    function() {
 
-    loadPicture(2);
+        loadPicture(2);
 
-};
+    }
+);
 
 
 /* =====================================================
@@ -467,79 +431,112 @@ document.getElementById(
    ===================================================== */
 
 document.getElementById(
-    "start"
-).onclick = async function() {
+    "startMR"
+).addEventListener(
+    "click",
+    async function() {
 
+        try {
 
-    if (!navigator.xr) {
+            if (!navigator.xr) {
 
-        alert(
-            "WebXR wird nicht unterstützt."
-        );
+                alert(
+                    "Dieser Browser unterstützt kein WebXR."
+                );
 
-        return;
-
-    }
-
-
-    const supported =
-        await navigator.xr.isSessionSupported(
-            "immersive-ar"
-        );
-
-
-    if (!supported) {
-
-        alert(
-            "Mixed Reality wird nicht unterstützt."
-        );
-
-        return;
-
-    }
-
-
-    const session =
-        await navigator.xr.requestSession(
-
-            "immersive-ar",
-
-            {
-
-                requiredFeatures: [
-                    "local-floor"
-                ],
-
-                optionalFeatures: [
-                    "dom-overlay"
-                ],
-
-                domOverlay: {
-                    root:
-                        document.body
-                }
+                return;
 
             }
 
-        );
+
+            const supported =
+                await navigator.xr.isSessionSupported(
+                    "immersive-ar"
+                );
 
 
-    renderer.xr.setReferenceSpaceType(
-        "local-floor"
-    );
+            if (!supported) {
+
+                alert(
+                    "Mixed Reality wird auf diesem Gerät nicht unterstützt."
+                );
+
+                return;
+
+            }
 
 
-    await renderer.xr.setSession(
-        session
-    );
+            const session =
+                await navigator.xr.requestSession(
+
+                    "immersive-ar",
+
+                    {
+
+                        requiredFeatures: [
+                            "local-floor"
+                        ],
+
+                        optionalFeatures: [
+                            "dom-overlay"
+                        ],
+
+                        domOverlay: {
+                            root:
+                                document.body
+                        }
+
+                    }
+
+                );
 
 
-    document.getElementById(
-        "menu"
-    ).style.display =
-        "none";
+            renderer.xr.setReferenceSpaceType(
+                "local-floor"
+            );
 
-};
+
+            await renderer.xr.setSession(
+                session
+            );
+
+
+            document.getElementById(
+                "menu"
+            ).style.display =
+                "none";
+
+
+            session.addEventListener(
+                "end",
+                function() {
+
+                    document.getElementById(
+                        "menu"
+                    ).style.display =
+                        "block";
+
+                }
+            );
+
+
+        }
+
+        catch(error) {
+
+            console.error(
+                "MR konnte nicht gestartet werden:",
+                error
+            );
+
+            alert(
+                "MR konnte nicht gestartet werden."
+            );
+
+        }
+
+    }
+);
 
 
 /* =====================================================
@@ -548,14 +545,13 @@ document.getElementById(
 
 
 /*
-    Deadzone verhindert leichtes Zittern
+    Kleine Joystickbewegungen ignorieren
 */
 
 function deadzone(value) {
 
     if (
-        Math.abs(value)
-        < 0.15
+        Math.abs(value) < 0.15
     ) {
 
         return 0;
@@ -568,21 +564,17 @@ function deadzone(value) {
 
 
 /*
-    Controller-Zustand
-
-    damit wir Tasten nur einmal
-    pro Klick auslösen
+    Bereits gedrückte Buttons merken
 */
 
-const previousButtons =
+const buttonStates =
     new WeakMap();
 
 
-function buttonPressed(
+function justPressed(
     gamepad,
     index
 ) {
-
 
     if (
         !gamepad.buttons[index]
@@ -593,51 +585,50 @@ function buttonPressed(
     }
 
 
-    const current =
+    const pressed =
         gamepad.buttons[index].pressed;
 
 
-    let previous =
-        previousButtons.get(
+    let state =
+        buttonStates.get(
             gamepad
         );
 
 
-    if (!previous) {
+    if (!state) {
 
-        previous = [];
+        state = [];
 
     }
 
 
-    const wasPressed =
-        previous[index] || false;
+    const previous =
+        state[index] || false;
 
 
-    previous[index] =
-        current;
+    state[index] =
+        pressed;
 
 
-    previousButtons.set(
+    buttonStates.set(
         gamepad,
-        previous
+        state
     );
 
 
     return (
-        current &&
-        !wasPressed
+        pressed &&
+        !previous
     );
 
 }
 
 
 /* =====================================================
-   CONTROLLER-LOGIK
+   CONTROLLER-STEUERUNG
    ===================================================== */
 
 function updateControllers() {
-
 
     const session =
         renderer.xr.getSession();
@@ -669,16 +660,9 @@ function updateControllers() {
             inputSource.gamepad;
 
 
-        /*
-            PICO:
-
-            rechter Controller
-            = right
-
-            linker Controller
-            = left
-        */
-
+        /* =============================================
+           RECHTER CONTROLLER
+           ============================================= */
 
         if (
             inputSource.handedness
@@ -688,13 +672,13 @@ function updateControllers() {
 
 
             /*
-                JOYSTICK
+                RECHTER JOYSTICK
 
                 X =
                 links / rechts
 
                 Y =
-                oben / unten
+                hoch / runter
             */
 
             const x =
@@ -709,29 +693,24 @@ function updateControllers() {
                 );
 
 
-            /*
-                Bild bewegen
-
-                nur wenn NICHT festgestellt
-            */
-
             if (!locked) {
 
+                /*
+                    Bewegungsgeschwindigkeit
+                */
 
-                const movementSpeed =
+                const speed =
                     0.025;
 
 
                 pictureGroup.position.x
                     +=
-                    x *
-                    movementSpeed;
+                    x * speed;
 
 
                 pictureGroup.position.y
                     -=
-                    y *
-                    movementSpeed;
+                    y * speed;
 
             }
 
@@ -739,12 +718,11 @@ function updateControllers() {
             /*
                 A-TASTE
 
-                Bild feststellen
-                / freigeben
+                FESTSTELLEN
             */
 
             if (
-                buttonPressed(
+                justPressed(
                     gamepad,
                     4
                 )
@@ -752,7 +730,6 @@ function updateControllers() {
 
                 locked =
                     !locked;
-
 
                 updateStatus();
 
@@ -762,17 +739,11 @@ function updateControllers() {
             /*
                 B-TASTE
 
-                Transparenz wechseln
-
-                100%
-                70%
-                40%
-                20%
-                100%
+                TRANSPARENZ
             */
 
             if (
-                buttonPressed(
+                justPressed(
                     gamepad,
                     5
                 )
@@ -835,9 +806,9 @@ function updateControllers() {
         }
 
 
-        /*
-            LINKER CONTROLLER
-        */
+        /* =============================================
+           LINKER CONTROLLER
+           ============================================= */
 
         if (
             inputSource.handedness
@@ -847,10 +818,10 @@ function updateControllers() {
 
 
             /*
-                LINKER JOYSTICK:
+                LINKER JOYSTICK
 
-                hoch/runter
-                =
+                hoch/runter:
+
                 näher / weiter weg
             */
 
@@ -861,7 +832,6 @@ function updateControllers() {
 
 
             if (!locked) {
-
 
                 const distanceSpeed =
                     0.03;
@@ -878,64 +848,52 @@ function updateControllers() {
             /*
                 A-TASTE LINKS
 
-                Bild größer / kleiner
+                GRÖSSE
             */
 
             if (
-                buttonPressed(
+                justPressed(
                     gamepad,
                     4
                 )
             ) {
 
 
-                const factor =
-                    pictureWidth > 2.0
-                    ? 0.5
-                    : 2.0;
+                if (
+                    pictureSize < 2
+                ) {
 
+                    pictureSize =
+                        2;
 
-                pictureWidth *=
-                    factor;
+                }
 
+                else if (
+                    pictureSize < 3
+                ) {
 
-                pictureHeight *=
-                    factor;
+                    pictureSize =
+                        3;
 
+                }
 
-                /*
-                    Sicherheitsgrenzen
-                */
+                else {
 
-                pictureWidth =
-                    THREE.MathUtils.clamp(
-                        pictureWidth,
-                        0.5,
-                        4.0
-                    );
+                    pictureSize =
+                        1;
 
-
-                pictureHeight =
-                    THREE.MathUtils.clamp(
-                        pictureHeight,
-                        0.5,
-                        4.0
-                    );
+                }
 
 
                 if (picture) {
-
 
                     picture.geometry.dispose();
 
 
                     picture.geometry =
                         new THREE.PlaneGeometry(
-
-                            pictureWidth,
-
-                            pictureHeight
-
+                            pictureSize,
+                            pictureSize
                         );
 
                 }
@@ -949,22 +907,24 @@ function updateControllers() {
             /*
                 B-TASTE LINKS
 
-                Bild drehen
+                DREHEN
             */
 
             if (
-                buttonPressed(
+                justPressed(
                     gamepad,
                     5
                 )
-            {
+            ) {
 
 
                 if (!locked) {
 
                     pictureGroup.rotation.y
                         +=
-                        Math.PI / 12;
+                        THREE.MathUtils.degToRad(
+                            15
+                        );
 
                 }
 
@@ -982,36 +942,26 @@ function updateControllers() {
    ===================================================== */
 
 renderer.setAnimationLoop(
-
     function() {
-
 
         updateControllers();
 
-
         renderer.render(
-
             scene,
-
             camera
-
         );
 
     }
-
 );
 
 
 /* =====================================================
-   RESIZE
+   FENSTERGRÖSSE
    ===================================================== */
 
 window.addEventListener(
-
     "resize",
-
     function() {
-
 
         camera.aspect =
             window.innerWidth /
@@ -1022,26 +972,23 @@ window.addEventListener(
 
 
         renderer.setSize(
-
             window.innerWidth,
-
             window.innerHeight
-
         );
 
     }
-
 );
 
 
 /* =====================================================
-   STARTMOTIV
+   STARTBILD
    ===================================================== */
 
 loadPicture(1);
 
+updateStatus();
+
 </script>
 
 </body>
-
 </html>

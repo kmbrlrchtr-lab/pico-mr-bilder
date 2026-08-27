@@ -843,7 +843,28 @@ function updateControllers() {
                     distanceSpeed;
 
             }
+/*
+    LINKER JOYSTICK LINKS / RECHTS
 
+    Bild kippen
+*/
+
+const xTilt =
+    deadzone(
+        gamepad.axes[2] || 0
+    );
+
+if (!locked) {
+
+    const tiltSpeed =
+        0.025;
+
+    pictureGroup.rotation.x
+        +=
+        xTilt *
+        tiltSpeed;
+
+}
 
             /*
                 A-TASTE LINKS

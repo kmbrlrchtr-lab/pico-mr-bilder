@@ -27,8 +27,9 @@ display: block;
 import * as THREE from
 "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js";
 
-import { VRButton } from
-"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/webxr/VRButton.js";
+import { ARButton } from
+"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/webxr/ARButton.js";
+
 
 
 // -------------------------
@@ -69,7 +70,11 @@ renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.xr.enabled = true;
 
 document.body.appendChild(renderer.domElement);
-document.body.appendChild(VRButton.createButton(renderer));
+document.body.appendChild(
+ARButton.createButton(renderer, {
+optionalFeatures: ["hit-test"]
+})
+);
 
 
 // -------------------------

@@ -132,7 +132,123 @@ picture.position.set(
 
 
 scene.add(picture);
-},
+// ============================
+// Handsteuerung
+// ============================
+
+let grabbed = false;
+let grabOffset = new THREE.Vector3();
+
+let lastPinchCenter = new THREE.Vector3();
+let lastTwoHandDistance = 0;
+
+function getHandPoint(frame, inputSource, jointName) {
+if (!inputSource.hand) return null;
+
+const joint = inputSource.hand.get(jointName);
+if (!joint) return null;
+
+const pose = frame.getJointPose(
+joint,
+renderer.xr.getReferenceSpace()
+);
+
+if (!pose) return null;
+
+return new THREE.Vector3(
+pose.transform.position.x,
+pose.transform.position.y,
+pose.transform.position.z
+);
+}
+
+function updateHands(frame) {
+if (!frame) return;
+
+const session = renderer.xr.getSession();
+if (!session) return;
+
+const hands = [];
+
+for (const inputSource of session.inputSources) {
+if (inputSource.hand) {
+const thumb = getHandPoint(
+frame,
+inputSource,
+"thumb-tip"
+);
+
+const index = getHandPoint(
+frame,
+inputSource,
+"index-finger-tip"
+);
+
+if (thumb && index) {
+const pinchDistance = thumb.distanceTo(index);
+
+if (pinchDistance < 0.035) {
+const center = new THREE.Vector3()
+.addVectors(thumb, index)
+.multiplyScalar(0.5);
+
+hands.push(center);
+}
+}
+}
+}
+
+// Eine Hand = Bild verschieben
+if (hands.length === 1) {
+
+const hand = hands[0];
+
+if (!grabbed) {
+grabbed = true;
+lastPinchCenter.copy(hand);
+}
+
+const movement = new THREE.Vector3()
+.subVectors(hand, lastPinchCenter);
+
+picture.position.x += movement.x;
+picture.position.y += movement.y;
+
+lastPinchCenter.copy(hand);
+}
+
+// Zwei Hände = Bild skalieren
+else if (hands.length >= 2) {
+
+grabbed = false;
+
+const distance = hands[0].distanceTo(hands[1]);
+
+if (lastTwoHandDistance > 0) {
+
+const scaleChange =
+distance / lastTwoHandDistance;
+
+picture.scale.multiplyScalar(scaleChange);
+
+// Verhindert extremes Verkleinern/Vergrößern
+const scale = THREE.MathUtils.clamp(
+picture.scale.x,
+0.2,
+5
+);
+
+picture.scale.setScalar(scale);
+}
+
+lastTwoHandDistance = distance;
+}
+
+else {
+grabbed = false;
+lastTwoHandDistance = 0;
+}
+}
 
 undefined,
 
@@ -172,12 +288,15 @@ window.innerHeight
 // -------------------------
 
 renderer.setAnimationLoop(
-function() {
+function(time, frame) {
+
+updateHands(frame);
 
 renderer.render(
 scene,
 camera
 );
+
 }
 );
 

@@ -3,119 +3,60 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>PICO MR Bilder</title>
+<title>Pico MR Bilder</title>
 
 <style>
-body {
+html, body {
 margin: 0;
-background: #111;
-color: white;
-font-family: Arial, sans-serif;
-text-align: center;
+padding: 0;
+width: 100%;
+height: 100%;
+overflow: hidden;
+background: black;
 }
 
-#menu {
-padding: 30px;
-}
-
-button {
-font-size: 20px;
-padding: 15px 25px;
-margin: 10px;
-border: none;
-border-radius: 12px;
-cursor: pointer;
-}
-
-#start {
-background: #9b59ff;
-color: white;
-}
-
-.motif {
-background: #333;
-color: white;
-}
-
-#status {
-margin-top: 20px;
-opacity: 0.8;
+canvas {
+display: block;
 }
 </style>
 </head>
 
 <body>
 
-<div id="menu">
-
-<h1>💜 PICO Mixed Reality</h1>
-
-<p>Wähle dein Motiv:</p>
-
-<button class="motif" onclick="selectImage('motiv1.jpg')">
-🖼️ Motiv 1
-</button>
-
-<button class="motif" onclick="selectImage('motiv2.jpg')">
-🖼️ Motiv 2
-</button>
-
-<br>
-
-<button id="start" onclick="startXR()">
-🥽 Mixed Reality starten
-</button>
-
-<div id="status">
-Noch kein Motiv ausgewählt.
-</div>
-
-</div>
-
 <script type="module">
-
 import * as THREE from
-'https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js';
+"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js";
 
-let selectedImage = null;
+import { VRButton } from
+"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/webxr/VRButton.js";
 
-function selectImage(filename) {
-selectedImage = filename;
 
-document.getElementById("status").innerText =
-"Ausgewählt: " + filename;
-}
-
-window.selectImage = selectImage;
-
-async function startXR() {
-
-if (!selectedImage) {
-alert("Bitte zuerst ein Motiv auswählen.");
-return;
-}
-
-if (!navigator.xr) {
-alert("WebXR wird von diesem Browser nicht unterstützt.");
-return;
-}
-
-const supported =
-await navigator.xr.isSessionSupported("immersive-ar");
-
-if (!supported) {
-alert("Mixed Reality wird auf diesem Gerät nicht unterstützt.");
-return;
-}
+// -------------------------
+// Szene
+// -------------------------
 
 const scene = new THREE.Scene();
+
+scene.background = new THREE.Color(0x000000);
+
+
+// -------------------------
+// Kamera
+// -------------------------
 
 const camera = new THREE.PerspectiveCamera(
 70,
 window.innerWidth / window.innerHeight,
 0.01,
-20
+100
 );
+
+camera.position.set(0, 1.6, 0);
+
+
+// -------------------------
+// Renderer
+// -------------------------
 
 const renderer = new THREE.WebGLRenderer({
 antialias: true,
@@ -127,100 +68,113 @@ renderer.setSize(window.innerWidth, window.innerHeight);
 
 renderer.xr.enabled = true;
 
-document.body.innerHTML = "";
 document.body.appendChild(renderer.domElement);
+document.body.appendChild(VRButton.createButton(renderer));
 
-const session = await navigator.xr.requestSession(
-"immersive-ar",
-{
-requiredFeatures: ["local-floor"],
-optionalFeatures: [
-"dom-overlay",
-"hand-tracking"
-],
-domOverlay: {
-root: document.body
-}
-}
-);
 
-renderer.xr.setSession(session);
-
-// Hintergrund transparent lassen,
-// damit PICO Passthrough sichtbar bleibt.
-scene.background = null;
-
+// -------------------------
 // Licht
-const light = new THREE.AmbientLight(
-0xffffff,
-3
-);
+// -------------------------
 
+const light = new THREE.AmbientLight(0xffffff, 3);
 scene.add(light);
 
-// Bild laden
+
+// -------------------------
+// BILD
+// -------------------------
+
 const loader = new THREE.TextureLoader();
 
 loader.load(
-selectedImage,
+"bild.png",
+
 function(texture) {
 
-// Seitenverhältnis des Bildes erhalten
-const image = texture.image;
+// Bild soll scharf dargestellt werden
+texture.colorSpace = THREE.SRGBColorSpace;
 
-const aspect =
-image.width / image.height;
+// Quadratisches Bild:
+// EXAKT 2 Meter breit
+// EXAKT 2 Meter hoch
 
-const height = 1.0;
-const width = height * aspect;
+const geometry = new THREE.PlaneGeometry(2, 2);
 
-const geometry =
-new THREE.PlaneGeometry(
-width,
-height
-);
-
-const material =
-new THREE.MeshBasicMaterial({
+const material = new THREE.MeshBasicMaterial({
 map: texture,
 transparent: true,
 side: THREE.DoubleSide
 });
 
-const picture =
-new THREE.Mesh(
+const picture = new THREE.Mesh(
 geometry,
 material
 );
 
-/*
-* Das Bild wird ungefähr 1,5 m
-* vor dem Benutzer platziert.
-*/
+
+// -------------------------
+// Position
+// -------------------------
+
+// 1,5 m vor dem Benutzer
+// auf Augenhöhe
+
 picture.position.set(
 0,
-1.5,
+1.6,
 -1.5
 );
 
-scene.add(picture);
 
+scene.add(picture);
+},
+
+undefined,
+
+function(error) {
+console.error(
+"Bild konnte nicht geladen werden:",
+error
+);
 }
 );
+
+
+// -------------------------
+// Fenstergröße
+// -------------------------
+
+window.addEventListener(
+"resize",
+function() {
+
+camera.aspect =
+window.innerWidth /
+window.innerHeight;
+
+camera.updateProjectionMatrix();
+
+renderer.setSize(
+window.innerWidth,
+window.innerHeight
+);
+}
+);
+
+
+// -------------------------
+// Render Loop
+// -------------------------
 
 renderer.setAnimationLoop(
 function() {
-renderer.render(scene, camera);
-}
-);
 
-session.addEventListener(
-"end",
-function() {
-location.reload();
-}
+renderer.render(
+scene,
+camera
 );
 }
+);
 
 </script>
 
